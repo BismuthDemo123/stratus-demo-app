@@ -118,13 +118,37 @@ export default class ForecastView extends React.Component {
   }
 
   chartjsData() {
+    // Check if wx data exists and has the required properties
+    if (!this.state.wx || !this.state.wx.ordered_times || !this.state.wx.data) {
+      return {};
+    }
+    
     let metrics = {}; // map[metric_id, map[source_id, map[run_time, list]]] 
 
     for (const ts of this.state.wx.ordered_times) {
+      // Check if data exists for this timestamp
+      if (!this.state.wx.data[ts]) {
+        continue;
+      }
+      
       for (const data_point of this.state.wx.data[ts]) {
-        const source_field = this.state.source_fields[data_point.src_field_id]
+        // Check if data point has required fields
+        if (!data_point || !data_point.src_field_id || !data_point.run_time || data_point.value === undefined) {
+          continue;
+        }
+        
+        // Check if source_field exists
+        const source_field = this.state.source_fields[data_point.src_field_id];
+        if (!source_field || !source_field.metric_id || !source_field.source_id) {
+          continue;
+        }
+        
+        // Check if metric and source exist
         const metric = this.state.metrics[source_field.metric_id];
         const source = this.state.sources[source_field.source_id];
+        if (!metric || !source || !metric.id || !source.id || !metric.units) {
+          continue;
+        }
 
         if (!(metric.id in metrics)) {
           metrics[metric.id] = {};
@@ -189,7 +213,29 @@ export default class ForecastView extends React.Component {
   }
 
   coreMetricsBox(day) {
+    // Check if summary exists and has data for the requested day
+    if (!this.state.summary || !this.state.summary[day]) {
+      return (
+        <Row className="justify-content-md-center">
+          <Col md="auto">
+            <p>No weather data available</p>
+          </Col>
+        </Row>
+      );
+    }
+    
     const summary = this.state.summary[day];
+    
+    // Check if cloud_cover data exists
+    if (!summary.cloud_cover || !summary.cloud_cover[0]) {
+      return (
+        <Row className="justify-content-md-center">
+          <Col md="auto">
+            <p>Cloud cover data not available</p>
+          </Col>
+        </Row>
+      );
+    }
 
     let cloudCoverIcon = '';
     switch (summary.cloud_cover[0].cover) {
@@ -212,6 +258,20 @@ export default class ForecastView extends React.Component {
         cloudCoverIcon = 'wi-alien'; // idk
     }
 
+    // Check if temperature data exists
+    if (!summary.temps || !summary.temps[0] || !summary.high || !summary.low) {
+      return (
+        <Row className="justify-content-md-center">
+          <Col md={2}>
+            <i style={{fontSize: "7em"}} className={"wi " + cloudCoverIcon}></i>
+          </Col>
+          <Col md={3}>
+            <h4>Temperature data not available</h4>
+          </Col>
+        </Row>
+      );
+    }
+
     return (
       <Row className="justify-content-md-center">
         <Col md={2}>
@@ -227,6 +287,16 @@ export default class ForecastView extends React.Component {
   }
 
   summarize(day) {
+    // Check if summary exists and has data for the requested day
+    if (!this.state.summary || !this.state.summary[day]) {
+      return <span>No weather data available</span>;
+    }
+    
+    // Check if summary has the required properties
+    if (!this.state.summary[day].summary || !this.state.summary[day].summary.components) {
+      return <span>Weather summary not available</span>;
+    }
+    
     let components = [];
 
     for (const [index, component] of this.state.summary[day].summary.components.entries()) {
@@ -308,6 +378,22 @@ export default class ForecastView extends React.Component {
           </Row>
         );
       };
+    }
+
+    // Check if location exists
+    if (!this.state.location) {
+      return (
+        <div>
+          <Row className="justify-content-md-center">
+            <Col md="auto">
+              <h2>No location selected</h2>
+            </Col>
+          </Row>
+          <Spinner animation="border" role="status">
+            <span className="sr-only">Loading...</span>
+          </Spinner>
+        </div>
+      );
     }
 
     return (
